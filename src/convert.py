@@ -301,5 +301,5 @@ if __name__ == "__main__":
                 )
                 num_samples += 1
 
-    with h5py.File(hptr_file, "w") as f:
+    with h5py.File(hptr_file, "a") as f:
         f.attrs["data_len"] = num_samples
