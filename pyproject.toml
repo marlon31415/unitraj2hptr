@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]  # Ensures compatibility with the latest standards
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unitraj2hptr"
+version = "0.1.0"
+description = "Converts the h5 data from UniTraj (based on ScenarioNet) to the HPTR data format"
+authors = [
+    { name = "Marlon Steiner", email = "marlon.steiner@kit.edu" }
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["example", "package"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+dependencies = [
+    "requests",  # Add your package dependencies here
+    "numpy"
+]
+
+[project.urls]
+Repository = "https://github.com/marlon31415/unitraj2hptr"
+
+[tool.setuptools]
+package-dir = {"" = "src"}  # Maps the top-level directory to the src folder
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Look for modules in the src folder
+include = ["your_package_name*"]  # Replace with your actual package name
+
+[tool.setuptools.dynamic]
+version = { attr = "your_package_name.__version__" }  # Use your package's __version__ attribute for versioning
