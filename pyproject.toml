@@ -25,7 +25,9 @@ classifiers = [
 ]
 dependencies = [
     "requests",  # Add your package dependencies here
-    "numpy"
+    "numpy==2.0.2",
+    "h5py==3.12.1",
+    "tqdm==4.67.1",
 ]
 
 [project.urls]
@@ -36,7 +38,7 @@ package-dir = {"" = "src"}  # Maps the top-level directory to the src folder
 
 [tool.setuptools.packages.find]
 where = ["src"]  # Look for modules in the src folder
-include = ["your_package_name*"]  # Replace with your actual package name
+include = ["unitraj2hptr*"]
 
 [tool.setuptools.dynamic]
-version = { attr = "your_package_name.__version__" }  # Use your package's __version__ attribute for versioning
+version = { attr = "unitraj2hptr.__version__" }  # Use your package's __version__ attribute for versioning
