@@ -240,28 +240,38 @@ def convert_unitraj_to_hptr_history_tl(data, hptr_data: dict):
 
 
 if __name__ == "__main__":
-    dataset = "train"  # "train", "val", "test"
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dataset", type=str, default="train", choices=["train", "val", "test"]
+    )
+    parser.add_argument(
+        "--hptr_root_dir",
+        type=str,
+        default="/mrtstorage/datasets_tmp/nuscenes_hptr/",
+        help="The root directory of the HPTR data. Within this directory the files training.h5, validation.h5, and testing.h5 are generated.",
+    )
+    parser.add_argument(
+        "--unitraj_data_dir",
+        type=str,
+        default="/mrtstorage/datasets_tmp/nuscenes_hptr/train/nuscenes_scenarionet",
+        help="The directory of the UniTraj data to convert",
+    )
+    args = parser.parse_args()
+    dataset = args.dataset
+    hptr_root_dir = args.hptr_root_dir
+    unitraj_data_dir = args.unitraj_data_dir
 
     if dataset == "train":
-        hptr_file = "/mrtstorage/datasets_tmp/nuscenes_hptr/training.h5"
-        unitraj_data_dir = (
-            "/mrtstorage/datasets_tmp/nuscenes_unitraj/train/nuscenes_scenarionet"
-        )
+        hptr_file = hptr_root_dir + "training.h5"
     elif dataset == "val":
-        hptr_file = "/mrtstorage/datasets_tmp/nuscenes_hptr/validation.h5"
-        unitraj_data_dir = (
-            "/mrtstorage/datasets_tmp/nuscenes_unitraj/val/nuscenes_scenarionet"
-        )
+        hptr_file = hptr_root_dir + "validation.h5"
     elif dataset == "test":
-        hptr_file = "/mrtstorage/datasets_tmp/nuscenes_hptr/testing.h5"
-        unitraj_data_dir = (
-            "/mrtstorage/datasets_tmp/nuscenes_unitraj/v1.0-test/nuscenes_scenarionet"
-        )
+        hptr_file = hptr_root_dir + "testing.h5"
 
     data_files = os.listdir(unitraj_data_dir)
     data_files = [f for f in data_files if f.endswith(".h5")]
-
-    data_files = data_files[:1]
 
     num_samples = 0
     for filename in tqdm(data_files, desc="Converting data"):
