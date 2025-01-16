@@ -33,9 +33,9 @@ one_hot_map = defaultdict(lambda: 0, one_hot_map)
 
 # UniTraj to Waymo (hptr) agent conversion
 one_hot_agent = {
-    1: 0,  # VEHICLE
-    2: 1,  # PEDESTRIAN
-    3: 2,  # CYCLIST
+    0: 0,  # VEHICLE
+    1: 1,  # PEDESTRIAN
+    2: 2,  # CYCLIST
 }
 # default dict if UniTraj type is 0 (=unset) or 4 (=other) -> gets handled by using False valid values
 
@@ -71,21 +71,22 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     hptr_data["agent/object_id"] = np.arange(64)
     # agent/pos: shape (91, 64, 2)
     hptr_data["agent/pos"] = agent_pos.transpose(1, 0, 2)
-    # agent/role: shape (64, 3)
-    agent_role = np.zeros((64, 3), dtype=bool)
-    agent_role[0][0] = True  # Ego vehicle
-    for track_idx in [data["track_index_to_predict"].tolist()]:
-        agent_role[track_idx][2] = True
-    hptr_data["agent/role"] = agent_role
     # agent/size: shape (64, 3)
     hptr_data["agent/size"] = data["obj_trajs"][..., 0, 3:6]
+    # agent/role: shape (64, 3)
+    hptr_data["agent/role"] = np.zeros((64, 3), dtype=bool)
     # agent/type: shape (64, 3)
+    # agent type unitraj (obj_trajs[..., 6:11]):
+    # (veh, ped, cyc, predict, ego) -> no real one-hot encoding
     agent_type_one_hot = data["obj_trajs"][..., -1, 6:11]
-    agent_type_int = np.argmax(agent_type_one_hot, axis=-1)
-    for i, type in enumerate(agent_type_int):
-        if type == 0 or type == 4:
-            hptr_data["agent/valid"][:, i] = False
-    agent_type_int_waymo = [one_hot_agent[int(t)] for t in agent_type_int]
+    agent_type_int_waymo = []
+    for i, type in enumerate(agent_type_one_hot):
+        agent_type_int = np.argmax(type, axis=-1)
+        agent_type_int_waymo.append(one_hot_agent[agent_type_int])
+        if type[3] == 1:
+            hptr_data["agent/role"][i][2] = True
+        if type[4] == 1:
+            hptr_data["agent/role"][i][0] = True
     hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)
@@ -137,6 +138,15 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
         )
         agent_cmd[i] = np.eye(8, dtype=bool)[track_type]
     hptr_data["agent/cmd"] = agent_cmd
+
+    # check if all agents (with a role: ego, interaction, predict)
+    # have at least one valid entry
+    assert (
+        hptr_data["agent/valid"]
+        .transpose(1, 0)[hptr_data["agent/role"].any(-1)]
+        .any(-1)
+        .all()
+    ), "All agents with a role must have at least one valid entry"
 
     """
     Note: agent_no_sim is used in validation dataset (and possibly test dataset).

@@ -72,6 +72,15 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         self.assertEqual(hptr_data["agent_no_sim/valid"].dtype, "bool")
         self.assertEqual(hptr_data["agent_no_sim/type"].dtype, "bool")
 
+        # check if all agents (with a role: ego, interaction, predict)
+        # have at least one valid entry
+        self.assertTrue(
+            hptr_data["agent/valid"]
+            .transpose(1, 0)[hptr_data["agent/role"].any(-1)]
+            .any(-1)
+            .all()
+        )
+
     def test_convert_unitraj_to_hptr_history_agent(self):
         hptr_data = {}
         convert_unitraj_to_hptr_history_agent(self.data, hptr_data)
