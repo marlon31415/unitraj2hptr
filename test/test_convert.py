@@ -69,6 +69,8 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         self.assertEqual(hptr_data["agent/type"].dtype, "bool")
         self.assertEqual(hptr_data["agent/cmd"].dtype, "bool")
         self.assertEqual(hptr_data["agent/role"].dtype, "bool")
+        self.assertEqual(hptr_data["agent_no_sim/valid"].dtype, "bool")
+        self.assertEqual(hptr_data["agent_no_sim/type"].dtype, "bool")
 
     def test_convert_unitraj_to_hptr_history_agent(self):
         hptr_data = {}
@@ -128,6 +130,12 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
             hptr_data["history/agent_no_sim/yaw_bbox"].shape,
             (n_steps_history, n_agent_no_sim, 1),
         )
+
+        self.assertEqual(hptr_data["history/agent/valid"].dtype, "bool")
+        self.assertEqual(hptr_data["history/agent/type"].dtype, "bool")
+        self.assertEqual(hptr_data["history/agent/role"].dtype, "bool")
+        self.assertEqual(hptr_data["history/agent_no_sim/valid"].dtype, "bool")
+        self.assertEqual(hptr_data["history/agent_no_sim/type"].dtype, "bool")
 
     def test_convert_unitraj_to_hptr_map(self):
         hptr_data = {}
