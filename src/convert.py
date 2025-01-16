@@ -90,8 +90,10 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)
     # agent/spd: shape (91, 64, 1)
-    hptr_data["agent/spd"] = np.linalg.norm(agent_vel, axis=2, keepdims=True).transpose(
-        1, 0, 2
+    hptr_data["agent/spd"] = (
+        np.linalg.norm(agent_vel, axis=2, keepdims=True)
+        .transpose(1, 0, 2)
+        .astype(np.float32)
     )
     # agent/acc: shape (91, 64, 1)
     # agent/yaw_bbox: shape (91, 64, 1)
@@ -118,12 +120,12 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
             yaw_rate = np.diff(yaw, axis=0) / 0.1
             agent_yaw_rate[i, step_start + 1 : step_end + 1, :] = yaw_rate
 
-    hptr_data["agent/acc"] = agent_acc.transpose(1, 0, 2)
-    hptr_data["agent/yaw_bbox"] = agent_yaw.transpose(1, 0, 2)
-    hptr_data["agent/yaw_rate"] = agent_yaw_rate.transpose(1, 0, 2)
+    hptr_data["agent/acc"] = agent_acc.transpose(1, 0, 2).astype(np.float32)
+    hptr_data["agent/yaw_bbox"] = agent_yaw.transpose(1, 0, 2).astype(np.float32)
+    hptr_data["agent/yaw_rate"] = agent_yaw_rate.transpose(1, 0, 2).astype(np.float32)
 
     # agent/goal: shape (64, 4) TODO
-    hptr_data["agent/goal"] = np.zeros((64, 4))
+    hptr_data["agent/goal"] = np.zeros((64, 4), dtype=np.float32)
     # agent/cmd: shape (64, 8)
     agent_cmd = np.zeros((64, 8), dtype=bool)
     for i in range(n_agent):
@@ -139,19 +141,19 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     # agent_no_sim/object_id: shape (256)
     hptr_data["agent_no_sim/object_id"] = np.arange(256) + 64
     # agent_no_sim/pos: shape (91, 256, 2)
-    hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2))
+    hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2), dtype=np.float32)
     # agent_no_sim/size: shape (256, 3)
-    hptr_data["agent_no_sim/size"] = np.zeros((256, 3))
+    hptr_data["agent_no_sim/size"] = np.zeros((256, 3), dtype=np.float32)
     # agent_no_sim/spd: shape (91, 256, 1)
-    hptr_data["agent_no_sim/spd"] = np.zeros((91, 256, 1))
+    hptr_data["agent_no_sim/spd"] = np.zeros((91, 256, 1), dtype=np.float32)
     # agent_no_sim/type: shape (256, 3)
-    hptr_data["agent_no_sim/type"] = np.zeros((256, 3))
+    hptr_data["agent_no_sim/type"] = np.zeros((256, 3), dtype=bool)
     # agent_no_sim/valid: shape (91, 256)
-    hptr_data["agent_no_sim/valid"] = np.zeros((91, 256))
+    hptr_data["agent_no_sim/valid"] = np.zeros((91, 256), dtype=bool)
     # agent_no_sim/vel: shape (91, 256, 2)
-    hptr_data["agent_no_sim/vel"] = np.zeros((91, 256, 2))
+    hptr_data["agent_no_sim/vel"] = np.zeros((91, 256, 2), dtype=np.float32)
     # agent_no_sim/yaw_bbox: shape (91, 256, 1)
-    hptr_data["agent_no_sim/yaw_bbox"] = np.zeros((91, 256, 1))
+    hptr_data["agent_no_sim/yaw_bbox"] = np.zeros((91, 256, 1), dtype=np.float32)
 
 
 def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
@@ -222,17 +224,17 @@ def convert_unitraj_to_hptr_map(data, hptr_data: dict):
 def convert_unitraj_to_hptr_tl(data, hptr_data: dict):
     # Currently, UniTraj data does not have traffic light information
     # tl_lane/idx: shape (91, 100)
-    hptr_data["tl_lane/idx"] = np.zeros((91, 100))
+    hptr_data["tl_lane/idx"] = np.zeros((91, 100), dtype=np.float32)
     # tl_lane/state: shape (91, 100, 5)
-    hptr_data["tl_lane/state"] = np.zeros((91, 100, 5))
+    hptr_data["tl_lane/state"] = np.zeros((91, 100, 5), dtype=np.float32)
     # tl_lane/valid: shape (91, 100)
     hptr_data["tl_lane/valid"] = np.zeros((91, 100), dtype=bool)
     # tl_stop/dir: shape (91, 40, 2)
-    hptr_data["tl_stop/dir"] = np.zeros((91, 40, 2))
+    hptr_data["tl_stop/dir"] = np.zeros((91, 40, 2), dtype=np.float32)
     # tl_stop/pos: shape (91, 40, 2)
-    hptr_data["tl_stop/pos"] = np.zeros((91, 40, 2))
+    hptr_data["tl_stop/pos"] = np.zeros((91, 40, 2), dtype=np.float32)
     # tl_stop/state: shape (91, 40, 5)
-    hptr_data["tl_stop/state"] = np.zeros((91, 40, 5))
+    hptr_data["tl_stop/state"] = np.zeros((91, 40, 5), dtype=np.float32)
     # tl_stop/valid: shape (91, 40)
     hptr_data["tl_stop/valid"] = np.zeros((91, 40), dtype=bool)
 
