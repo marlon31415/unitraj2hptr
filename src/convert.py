@@ -155,31 +155,42 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
 
 
 def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
-    if hptr_data.get("agent") is None:
+    if not any(key.startswith("agent") for key in hptr_data.keys()):
         convert_unitraj_to_hptr_agent(data, hptr_data)
 
-    hptr_data["history/agent/valid"] = hptr_data["agent/valid"]
-    hptr_data["history/agent/dest"] = hptr_data["agent/dest"]
+    hptr_data["history/agent/valid"] = hptr_data["agent/valid"][: CURRENT_STEP + 1]
     hptr_data["history/agent/object_id"] = hptr_data["agent/object_id"]
-    hptr_data["history/agent/pos"] = hptr_data["agent/pos"]
+    hptr_data["history/agent/pos"] = hptr_data["agent/pos"][: CURRENT_STEP + 1]
     hptr_data["history/agent/role"] = hptr_data["agent/role"]
     hptr_data["history/agent/size"] = hptr_data["agent/size"]
     hptr_data["history/agent/type"] = hptr_data["agent/type"]
-    hptr_data["history/agent/vel"] = hptr_data["agent/vel"]
-    hptr_data["history/agent/spd"] = hptr_data["agent/spd"]
-    hptr_data["history/agent/acc"] = hptr_data["agent/acc"]
-    hptr_data["history/agent/yaw_bbox"] = hptr_data["agent/yaw_bbox"]
-    hptr_data["history/agent/yaw_rate"] = hptr_data["agent/yaw_rate"]
-    hptr_data["history/agent/goal"] = hptr_data["agent/goal"]
-    hptr_data["history/agent/cmd"] = hptr_data["agent/cmd"]
+    hptr_data["history/agent/vel"] = hptr_data["agent/vel"][: CURRENT_STEP + 1]
+    hptr_data["history/agent/spd"] = hptr_data["agent/spd"][: CURRENT_STEP + 1]
+    hptr_data["history/agent/acc"] = hptr_data["agent/acc"][: CURRENT_STEP + 1]
+    hptr_data["history/agent/yaw_bbox"] = hptr_data["agent/yaw_bbox"][
+        : CURRENT_STEP + 1
+    ]
+    hptr_data["history/agent/yaw_rate"] = hptr_data["agent/yaw_rate"][
+        : CURRENT_STEP + 1
+    ]
     hptr_data["history/agent_no_sim/object_id"] = hptr_data["agent_no_sim/object_id"]
-    hptr_data["history/agent_no_sim/pos"] = hptr_data["agent_no_sim/pos"]
+    hptr_data["history/agent_no_sim/pos"] = hptr_data["agent_no_sim/pos"][
+        : CURRENT_STEP + 1
+    ]
     hptr_data["history/agent_no_sim/size"] = hptr_data["agent_no_sim/size"]
-    hptr_data["history/agent_no_sim/spd"] = hptr_data["agent_no_sim/spd"]
+    hptr_data["history/agent_no_sim/spd"] = hptr_data["agent_no_sim/spd"][
+        : CURRENT_STEP + 1
+    ]
     hptr_data["history/agent_no_sim/type"] = hptr_data["agent_no_sim/type"]
-    hptr_data["history/agent_no_sim/valid"] = hptr_data["agent_no_sim/valid"]
-    hptr_data["history/agent_no_sim/vel"] = hptr_data["agent_no_sim/vel"]
-    hptr_data["history/agent_no_sim/yaw_bbox"] = hptr_data["agent_no_sim/yaw_bbox"]
+    hptr_data["history/agent_no_sim/valid"] = hptr_data["agent_no_sim/valid"][
+        : CURRENT_STEP + 1
+    ]
+    hptr_data["history/agent_no_sim/vel"] = hptr_data["agent_no_sim/vel"][
+        : CURRENT_STEP + 1
+    ]
+    hptr_data["history/agent_no_sim/yaw_bbox"] = hptr_data["agent_no_sim/yaw_bbox"][
+        : CURRENT_STEP + 1
+    ]
 
 
 def convert_unitraj_to_hptr_map(data, hptr_data: dict):
@@ -227,16 +238,16 @@ def convert_unitraj_to_hptr_tl(data, hptr_data: dict):
 
 
 def convert_unitraj_to_hptr_history_tl(data, hptr_data: dict):
-    if hptr_data.get("tl_lane") is None:
+    if not any(key.startswith("tl") for key in hptr_data.keys()):
         convert_unitraj_to_hptr_tl(data, hptr_data)
 
-    hptr_data["history/tl_lane/idx"] = hptr_data["tl_lane/idx"]
-    hptr_data["history/tl_lane/state"] = hptr_data["tl_lane/state"]
-    hptr_data["history/tl_lane/valid"] = hptr_data["tl_lane/valid"]
-    hptr_data["history/tl_stop/dir"] = hptr_data["tl_stop/dir"]
-    hptr_data["history/tl_stop/pos"] = hptr_data["tl_stop/pos"]
-    hptr_data["history/tl_stop/state"] = hptr_data["tl_stop/state"]
-    hptr_data["history/tl_stop/valid"] = hptr_data["tl_stop/valid"]
+    hptr_data["history/tl_lane/idx"] = hptr_data["tl_lane/idx"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_lane/state"] = hptr_data["tl_lane/state"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_lane/valid"] = hptr_data["tl_lane/valid"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_stop/dir"] = hptr_data["tl_stop/dir"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_stop/pos"] = hptr_data["tl_stop/pos"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_stop/state"] = hptr_data["tl_stop/state"][: CURRENT_STEP + 1]
+    hptr_data["history/tl_stop/valid"] = hptr_data["tl_stop/valid"][: CURRENT_STEP + 1]
 
 
 if __name__ == "__main__":
@@ -296,11 +307,11 @@ if __name__ == "__main__":
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                 elif dataset == "val":
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
                     convert_unitraj_to_hptr_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
                     convert_unitraj_to_hptr_map(data, hptr_data)
-                    convert_unitraj_to_hptr_history_tl(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
+                    convert_unitraj_to_hptr_history_tl(data, hptr_data)
                 elif dataset == "test":
                     convert_unitraj_to_hptr_history_agent(data, hptr_data)
                     convert_unitraj_to_hptr_map(data, hptr_data)
