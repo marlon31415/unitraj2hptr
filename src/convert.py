@@ -138,22 +138,34 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
         agent_cmd[i] = np.eye(8, dtype=bool)[track_type]
     hptr_data["agent/cmd"] = agent_cmd
 
+    """
+    Note: agent_no_sim is used in validation dataset (and possibly test dataset).
+    To get this work, the agent data is copied to these fields, since agent_no_sim is not available in UniTraj data.
+    This is a workaround to get the HPTR model to work with the validation dataset.
+    """
     # agent_no_sim/object_id: shape (256)
     hptr_data["agent_no_sim/object_id"] = np.arange(256) + 64
     # agent_no_sim/pos: shape (91, 256, 2)
     hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2), dtype=np.float32)
+    hptr_data["agent_no_sim/pos"][:, :64, :] = hptr_data["agent/pos"]
     # agent_no_sim/size: shape (256, 3)
     hptr_data["agent_no_sim/size"] = np.zeros((256, 3), dtype=np.float32)
+    hptr_data["agent_no_sim/size"][:64, :] = hptr_data["agent/size"]
     # agent_no_sim/spd: shape (91, 256, 1)
     hptr_data["agent_no_sim/spd"] = np.zeros((91, 256, 1), dtype=np.float32)
+    hptr_data["agent_no_sim/spd"][:, :64, :] = hptr_data["agent/spd"]
     # agent_no_sim/type: shape (256, 3)
     hptr_data["agent_no_sim/type"] = np.zeros((256, 3), dtype=bool)
+    hptr_data["agent_no_sim/type"][:64, :] = hptr_data["agent/type"]
     # agent_no_sim/valid: shape (91, 256)
     hptr_data["agent_no_sim/valid"] = np.zeros((91, 256), dtype=bool)
+    hptr_data["agent_no_sim/valid"][:, :64] = hptr_data["agent/valid"]
     # agent_no_sim/vel: shape (91, 256, 2)
     hptr_data["agent_no_sim/vel"] = np.zeros((91, 256, 2), dtype=np.float32)
+    hptr_data["agent_no_sim/vel"][:, :64, :] = hptr_data["agent/vel"]
     # agent_no_sim/yaw_bbox: shape (91, 256, 1)
     hptr_data["agent_no_sim/yaw_bbox"] = np.zeros((91, 256, 1), dtype=np.float32)
+    hptr_data["agent_no_sim/yaw_bbox"][:, :64, :] = hptr_data["agent/yaw_bbox"]
 
 
 def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
