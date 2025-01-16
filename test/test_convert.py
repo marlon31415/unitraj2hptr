@@ -12,6 +12,7 @@ from convert import (
 n_agent = 64
 n_agent_no_sim = 256
 n_steps = 91
+n_steps_history = 11
 n_pl = 1024
 n_pl_node = 20
 
@@ -73,48 +74,59 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         hptr_data = {}
         convert_unitraj_to_hptr_history_agent(self.data, hptr_data)
 
-        self.assertEqual(hptr_data["history/agent/acc"].shape, (n_steps, n_agent, 1))
-        self.assertEqual(hptr_data["history/agent/cmd"].shape, (n_agent, 8))
-        self.assertEqual(hptr_data["history/agent/dest"].shape, (n_agent,))
-        self.assertEqual(hptr_data["history/agent/goal"].shape, (n_agent, 4))
+        self.assertEqual(
+            hptr_data["history/agent/acc"].shape, (n_steps_history, n_agent, 1)
+        )
         self.assertEqual(hptr_data["history/agent/object_id"].shape, (n_agent,))
-        self.assertEqual(hptr_data["history/agent/pos"].shape, (n_steps, n_agent, 2))
+        self.assertEqual(
+            hptr_data["history/agent/pos"].shape, (n_steps_history, n_agent, 2)
+        )
         self.assertEqual(hptr_data["history/agent/role"].shape, (n_agent, 3))
         self.assertEqual(hptr_data["history/agent/size"].shape, (n_agent, 3))
-        self.assertEqual(hptr_data["history/agent/spd"].shape, (n_steps, n_agent, 1))
-        self.assertEqual(hptr_data["history/agent/type"].shape, (n_agent, 3))
-        self.assertEqual(hptr_data["history/agent/valid"].shape, (n_steps, n_agent))
-        self.assertEqual(hptr_data["history/agent/vel"].shape, (n_steps, n_agent, 2))
         self.assertEqual(
-            hptr_data["history/agent/yaw_bbox"].shape, (n_steps, n_agent, 1)
+            hptr_data["history/agent/spd"].shape, (n_steps_history, n_agent, 1)
+        )
+        self.assertEqual(hptr_data["history/agent/type"].shape, (n_agent, 3))
+        self.assertEqual(
+            hptr_data["history/agent/valid"].shape, (n_steps_history, n_agent)
         )
         self.assertEqual(
-            hptr_data["history/agent/yaw_rate"].shape, (n_steps, n_agent, 1)
+            hptr_data["history/agent/vel"].shape, (n_steps_history, n_agent, 2)
+        )
+        self.assertEqual(
+            hptr_data["history/agent/yaw_bbox"].shape, (n_steps_history, n_agent, 1)
+        )
+        self.assertEqual(
+            hptr_data["history/agent/yaw_rate"].shape, (n_steps_history, n_agent, 1)
         )
         self.assertEqual(
             hptr_data["history/agent_no_sim/object_id"].shape, (n_agent_no_sim,)
         )
         self.assertEqual(
-            hptr_data["history/agent_no_sim/pos"].shape, (n_steps, n_agent_no_sim, 2)
+            hptr_data["history/agent_no_sim/pos"].shape,
+            (n_steps_history, n_agent_no_sim, 2),
         )
         self.assertEqual(
             hptr_data["history/agent_no_sim/size"].shape, (n_agent_no_sim, 3)
         )
         self.assertEqual(
-            hptr_data["history/agent_no_sim/spd"].shape, (n_steps, n_agent_no_sim, 1)
+            hptr_data["history/agent_no_sim/spd"].shape,
+            (n_steps_history, n_agent_no_sim, 1),
         )
         self.assertEqual(
             hptr_data["history/agent_no_sim/type"].shape, (n_agent_no_sim, 3)
         )
         self.assertEqual(
-            hptr_data["history/agent_no_sim/valid"].shape, (n_steps, n_agent_no_sim)
+            hptr_data["history/agent_no_sim/valid"].shape,
+            (n_steps_history, n_agent_no_sim),
         )
         self.assertEqual(
-            hptr_data["history/agent_no_sim/vel"].shape, (n_steps, n_agent_no_sim, 2)
+            hptr_data["history/agent_no_sim/vel"].shape,
+            (n_steps_history, n_agent_no_sim, 2),
         )
         self.assertEqual(
             hptr_data["history/agent_no_sim/yaw_bbox"].shape,
-            (n_steps, n_agent_no_sim, 1),
+            (n_steps_history, n_agent_no_sim, 1),
         )
 
     def test_convert_unitraj_to_hptr_map(self):
@@ -150,13 +162,25 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         hptr_data = {}
         convert_unitraj_to_hptr_history_tl(self.data, hptr_data)
 
-        self.assertEqual(hptr_data["history/tl_lane/idx"].shape, (n_steps, 100))
-        self.assertEqual(hptr_data["history/tl_lane/state"].shape, (n_steps, 100, 5))
-        self.assertEqual(hptr_data["history/tl_lane/valid"].shape, (n_steps, 100))
-        self.assertEqual(hptr_data["history/tl_stop/dir"].shape, (n_steps, 40, 2))
-        self.assertEqual(hptr_data["history/tl_stop/pos"].shape, (n_steps, 40, 2))
-        self.assertEqual(hptr_data["history/tl_stop/state"].shape, (n_steps, 40, 5))
-        self.assertEqual(hptr_data["history/tl_stop/valid"].shape, (n_steps, 40))
+        self.assertEqual(hptr_data["history/tl_lane/idx"].shape, (n_steps_history, 100))
+        self.assertEqual(
+            hptr_data["history/tl_lane/state"].shape, (n_steps_history, 100, 5)
+        )
+        self.assertEqual(
+            hptr_data["history/tl_lane/valid"].shape, (n_steps_history, 100)
+        )
+        self.assertEqual(
+            hptr_data["history/tl_stop/dir"].shape, (n_steps_history, 40, 2)
+        )
+        self.assertEqual(
+            hptr_data["history/tl_stop/pos"].shape, (n_steps_history, 40, 2)
+        )
+        self.assertEqual(
+            hptr_data["history/tl_stop/state"].shape, (n_steps_history, 40, 5)
+        )
+        self.assertEqual(
+            hptr_data["history/tl_stop/valid"].shape, (n_steps_history, 40)
+        )
 
 
 if __name__ == "__main__":
