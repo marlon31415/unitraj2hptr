@@ -133,7 +133,7 @@ center_gt_trajs_mask: (80,)\
 center_gt_trajs_src: (91, 10)\
 center_objects_id: b'dc762bf1bc694d3e8141bf592f9b1456'\
 center_objects_type: 1\
-center_objects_world: (10,)\
+center_objects_world: (10,) (x,y,z,l,w,h,heading,vx,vy,valid)\
 dataset_name_ b'nuscenes'\
 kalman_difficulty: (3,)\
 map_center: (3,)\

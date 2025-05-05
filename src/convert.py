@@ -66,7 +66,7 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     # agent/valid: shape (91, 64)
     hptr_data["agent/valid"] = agent_valid.transpose(1, 0).astype(bool)
     # agent/dest: shape (64)
-    hptr_data["agent/dest"] = np.zeros(64)
+    hptr_data["agent/dest"] = np.zeros(64, dtype=int)
     # agent/object_id: shape (64)
     hptr_data["agent/object_id"] = np.arange(64)
     # agent/pos: shape (91, 64, 2)
@@ -228,7 +228,7 @@ def convert_unitraj_to_hptr_map(data, hptr_data: dict):
     # map/type: shape (1024, 11)
     map_type_int = np.argmax(unitraj_map_pl[..., 0, 9:29], axis=-1)
     map_type_int_waymo = [one_hot_map[int(t)] for t in map_type_int]
-    hptr_data["map/type"] = np.eye(11, dtype=int)[map_type_int_waymo]
+    hptr_data["map/type"] = np.eye(11, dtype=bool)[map_type_int_waymo]
     # map/boundary: shape (4)
     hptr_data["map/boundary"] = np.array(
         [
@@ -246,9 +246,9 @@ def convert_unitraj_to_hptr_map(data, hptr_data: dict):
 def convert_unitraj_to_hptr_tl(data, hptr_data: dict):
     # Currently, UniTraj data does not have traffic light information
     # tl_lane/idx: shape (91, 100)
-    hptr_data["tl_lane/idx"] = np.zeros((91, 100), dtype=np.float32)
+    hptr_data["tl_lane/idx"] = np.zeros((91, 100), dtype=int)
     # tl_lane/state: shape (91, 100, 5)
-    hptr_data["tl_lane/state"] = np.zeros((91, 100, 5), dtype=np.float32)
+    hptr_data["tl_lane/state"] = np.zeros((91, 100, 5), dtype=bool)
     # tl_lane/valid: shape (91, 100)
     hptr_data["tl_lane/valid"] = np.zeros((91, 100), dtype=bool)
     # tl_stop/dir: shape (91, 40, 2)
@@ -256,7 +256,7 @@ def convert_unitraj_to_hptr_tl(data, hptr_data: dict):
     # tl_stop/pos: shape (91, 40, 2)
     hptr_data["tl_stop/pos"] = np.zeros((91, 40, 2), dtype=np.float32)
     # tl_stop/state: shape (91, 40, 5)
-    hptr_data["tl_stop/state"] = np.zeros((91, 40, 5), dtype=np.float32)
+    hptr_data["tl_stop/state"] = np.zeros((91, 40, 5), dtype=bool)
     # tl_stop/valid: shape (91, 40)
     hptr_data["tl_stop/valid"] = np.zeros((91, 40), dtype=bool)
 
@@ -284,13 +284,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hptr_root_dir",
         type=str,
-        default="/mrtstorage/datasets_tmp/nuscenes_hptr/",
+        default="/dir/to/nuscenes_hptr/",
         help="The root directory of the HPTR data. Within this directory the files training.h5, validation.h5, and testing.h5 are generated.",
     )
     parser.add_argument(
         "--unitraj_data_dir",
         type=str,
-        default="/mrtstorage/datasets_tmp/nuscenes_hptr/train/nuscenes_scenarionet",
+        default="/dir/to/nuscenes_unitraj/train/nuscenes_scenarionet",
         help="The directory of the UniTraj data to convert",
     )
     args = parser.parse_args()
@@ -317,7 +317,7 @@ if __name__ == "__main__":
                 data = {k: v[()] for k, v in f[group].items()}
                 metadata = {}
                 metadata["scenario_id"] = f[group]["scenario_id"]
-                metadata["scenario_center"] = f[group]["map_center"]
+                metadata["scenario_center"] = f[group]["map_center"][:2]
                 metadata["scenario_yaw"] = 0
                 metadata["with_map"] = True
                 metadata["kalman_difficulty"] = f[group]["kalman_difficulty"]

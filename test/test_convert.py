@@ -158,7 +158,7 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         self.assertEqual(hptr_data["map/valid"].shape, (n_pl, n_pl_node))
 
         self.assertEqual(hptr_data["map/valid"].dtype, "bool")
-        self.assertEqual(hptr_data["map/type"].dtype, "int")
+        self.assertEqual(hptr_data["map/type"].dtype, "bool")
 
     def test_convert_unitraj_to_hptr_tl(self):
         hptr_data = {}
@@ -173,7 +173,9 @@ class TestConvertUnitrajToHptr(unittest.TestCase):
         self.assertEqual(hptr_data["tl_stop/valid"].shape, (n_steps, 40))
 
         self.assertEqual(hptr_data["tl_lane/valid"].dtype, "bool")
+        self.assertEqual(hptr_data["tl_lane/state"].dtype, "bool")
         self.assertEqual(hptr_data["tl_stop/valid"].dtype, "bool")
+        self.assertEqual(hptr_data["tl_stop/state"].dtype, "bool")
 
     def test_convert_unitraj_to_hptr_history_tl(self):
         hptr_data = {}
