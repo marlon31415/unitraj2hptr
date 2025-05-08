@@ -149,3 +149,7 @@ obj_trajs_pos: (64, 11, 3)\
 scenario_id: b'scene-0103_dc762bf1bc694d3e8141bf592f9b1456_c5f58c19249d4137ae063b0e9ecd8b8e'\
 track_index_to_predict: 0\
 trajectory_type: 7
+
+
+# HPTR Agent Role
+agent/role: [n_scene, n_agent, 3] -> bool [ego=0, interest=1, predict=2]

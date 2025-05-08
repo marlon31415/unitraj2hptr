@@ -5,7 +5,7 @@ from tqdm import tqdm
 from collections import defaultdict
 
 from h5_utils import write_element_to_hptr_h5_file
-from utils import classify_track
+from utils import classify_track, get_num_predict
 
 # UniTraj to Waymo (hptr) map pl conversion
 # UniTraj definition: https://github.com/vita-epfl/UniTraj/blob/735029a62889ebb6f1639fb7bf8f920d2498496c/unitraj/datasets/types.py#L40
@@ -83,10 +83,24 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     for i, type in enumerate(agent_type_one_hot):
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
-        if type[3] == 1:
-            hptr_data["agent/role"][i][2] = True
-        if type[4] == 1:
+        
+        if type[4] == 1: # ego role
             hptr_data["agent/role"][i][0] = True
+        
+        # Pedestrians predict role
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[1] == 1: 
+            hptr_data["agent/role"][i][2] = True
+
+        # Cyclists predict role
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[2] == 1:
+            hptr_data["agent/role"][i][2] = True
+
+        # nuScenes predict role
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: 
+            hptr_data["agent/role"][i][2] = True
+
+    assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
+
     hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)

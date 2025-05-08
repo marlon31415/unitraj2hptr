@@ -69,3 +69,15 @@ def classify_track(
         return 4  # TrajectoryType::LEFT_U_TURN;
 
     return 5  # TrajectoryType::LEFT_TURN;
+
+def get_num_predict(
+    role: np.ndarray
+    ) -> int:
+    """
+    Args:
+        role: shape (64, 3), bool
+    Returns:
+        NUM_PREDICT_ROLES: int
+    """
+
+    return sum(role)[:][2]
