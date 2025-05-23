@@ -51,7 +51,7 @@ one_hot_agent = defaultdict(lambda: 0, one_hot_agent)
 CURRENT_STEP = 10
 
 
-def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
+def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
     agent_pos = np.hstack(
         (data["obj_trajs"][..., 0:2], data["obj_trajs_future_state"][..., 0:2])
     )
@@ -59,6 +59,11 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
         (data["obj_trajs"][..., 25:27], data["obj_trajs_future_state"][..., 2:4])
     )
     agent_valid = np.hstack((data["obj_trajs_mask"], data["obj_trajs_future_mask"]))
+
+    if mode == "keypoints":
+        agent_kp = np.hstack(
+            (data["obj_trajs"][..., 29:80], data["obj_trajs_future_state"][..., 4:56])
+        )
 
     n_agent = agent_pos.shape[0]
     assert n_agent == 64, "Number of agents must be 64"
@@ -75,6 +80,9 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     hptr_data["agent/size"] = data["obj_trajs"][..., 0, 3:6]
     # agent/role: shape (64, 3)
     hptr_data["agent/role"] = np.zeros((64, 3), dtype=bool)
+    # agent/kp: shape (91,64,51)
+    if mode == "keypoints":
+        hptr_data["agent/kp"] = agent_kp.transpose(1, 0, 2)
     # agent/type: shape (64, 3)
     # agent type unitraj (obj_trajs[..., 6:11]):
     # (veh, ped, cyc, predict, ego) -> no real one-hot encoding
@@ -83,20 +91,8 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     for i, type in enumerate(agent_type_one_hot):
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
-        
-        if type[4] == 1: # ego role
-            hptr_data["agent/role"][i][0] = True
-        
-        # Pedestrians predict role
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[1] == 1: 
-            hptr_data["agent/role"][i][2] = True
 
-        # Cyclists predict role
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[2] == 1:
-            hptr_data["agent/role"][i][2] = True
-
-        # nuScenes predict role
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: 
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: # Predict based on Unitraj
             hptr_data["agent/role"][i][2] = True
 
     assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
@@ -172,6 +168,10 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     # agent_no_sim/pos: shape (91, 256, 2)
     hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2), dtype=np.float32)
     hptr_data["agent_no_sim/pos"][:, :64, :] = hptr_data["agent/pos"]
+    # agent_no_sim/kp: shape (91, 256, 51)
+    if mode == "keypoints":
+        hptr_data["agent_no_sim/kp"] = np.zeros((91, 256, 51), dtype=np.float32)
+        hptr_data["agent_no_sim/kp"][:, :64, :] = hptr_data["agent/kp"]
     # agent_no_sim/size: shape (256, 3)
     hptr_data["agent_no_sim/size"] = np.zeros((256, 3), dtype=np.float32)
     hptr_data["agent_no_sim/size"][:64, :] = hptr_data["agent/size"]
@@ -192,13 +192,15 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     hptr_data["agent_no_sim/yaw_bbox"][:, :64, :] = hptr_data["agent/yaw_bbox"]
 
 
-def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
+def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, mode= None):
     if not any(key.startswith("agent") for key in hptr_data.keys()):
         convert_unitraj_to_hptr_agent(data, hptr_data)
 
     hptr_data["history/agent/valid"] = hptr_data["agent/valid"][: CURRENT_STEP + 1]
     hptr_data["history/agent/object_id"] = hptr_data["agent/object_id"]
     hptr_data["history/agent/pos"] = hptr_data["agent/pos"][: CURRENT_STEP + 1]
+    if mode == "keypoints":
+        hptr_data["history/agent/kp"] = hptr_data["agent/kp"][: CURRENT_STEP + 1]
     hptr_data["history/agent/role"] = hptr_data["agent/role"]
     hptr_data["history/agent/size"] = hptr_data["agent/size"]
     hptr_data["history/agent/type"] = hptr_data["agent/type"]
@@ -307,6 +309,12 @@ if __name__ == "__main__":
         default="/dir/to/nuscenes_unitraj/train/nuscenes_scenarionet",
         help="The directory of the UniTraj data to convert",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default=None,
+        help="If the mode is set to 'keypoints', these atributes will be added to the HPTR format",
+    )
     args = parser.parse_args()
     dataset = args.dataset
     hptr_root_dir = args.hptr_root_dir
@@ -341,17 +349,17 @@ if __name__ == "__main__":
 
                 hptr_data = {}
                 if dataset == "train":
-                    convert_unitraj_to_hptr_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                 elif dataset == "val":
-                    convert_unitraj_to_hptr_agent(data, hptr_data)
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
                 elif dataset == "test":
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
 
