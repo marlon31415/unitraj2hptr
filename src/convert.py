@@ -92,6 +92,9 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
 
+        if type[4] == 1: # Ego vehicle
+            hptr_data["agent/role"][i][0] = True
+
         if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: # Predict based on Unitraj
             hptr_data["agent/role"][i][2] = True
 
