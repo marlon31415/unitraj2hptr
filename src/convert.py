@@ -234,6 +234,11 @@ def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, mode= None):
     hptr_data["history/agent_no_sim/yaw_bbox"] = hptr_data["agent_no_sim/yaw_bbox"][
         : CURRENT_STEP + 1
     ]
+    if mode == "keypoints":
+        hptr_data["history/agent_no_sim/kp"] = hptr_data["agent_no_sim/kp"][
+        : CURRENT_STEP + 1
+        ]
+
 
 
 def convert_unitraj_to_hptr_map(data, hptr_data: dict):
