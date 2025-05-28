@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from h5_utils import write_element_to_hptr_h5_file
 from utils import classify_track, get_num_predict
+from view import plot_scenario
 
 # UniTraj to Waymo (hptr) map pl conversion
 # UniTraj definition: https://github.com/vita-epfl/UniTraj/blob/735029a62889ebb6f1639fb7bf8f920d2498496c/unitraj/datasets/types.py#L40
@@ -323,6 +324,17 @@ if __name__ == "__main__":
         default=None,
         help="If the mode is set to 'keypoints', these atributes will be added to the HPTR format",
     )
+    parser.add_argument(
+        "--save_plots",
+        action="store_true",
+        help="If save_plots is True, the plots are saved under --save_path",
+    )
+    parser.add_argument(
+        "--save_path",
+        type=str,
+        default="../res/plots/scenario",
+        help="This path is used to store the scenario plots, the files are asumed to be named scenario_... .png",
+    )
     args = parser.parse_args()
     dataset = args.dataset
     hptr_root_dir = args.hptr_root_dir
@@ -343,7 +355,7 @@ if __name__ == "__main__":
         file_path = os.path.join(unitraj_data_dir, filename)
         with h5py.File(file_path, "r") as f:
             groups = list(f.keys())
-            for group in groups:
+            for i, group in enumerate(groups):
                 data = {k: v[()] for k, v in f[group].items()}
                 metadata = {}
                 metadata["scenario_id"] = f[group]["scenario_id"]
@@ -360,12 +372,16 @@ if __name__ == "__main__":
                     convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
+                    if args.save_plots:
+                        plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
                 elif dataset == "val":
                     convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
+                    if args.save_plots:
+                        plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
                 elif dataset == "test":
                     convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
