@@ -8,7 +8,10 @@ from typing import Dict
 def plot_scenario(hptr_data: Dict,
                   save_path: str, 
                   num_joints: int = 17, 
-                  ax_dist: int = 5):
+                  ax_dist: int = 5,
+                  margin: float = -0.35,
+                  kp_mode: bool = False,
+                  current_t: int = 10):
     """
     Plot 3D trajectories and keypoints for multiple agents over time.
 
@@ -17,14 +20,17 @@ def plot_scenario(hptr_data: Dict,
         save_path: str, location to save the plots
         num_joints: int, number of joints in the keypoints (default: 17)
         ax_dist: int
+        margin: float, plot range margin threshold
     """
     in_edge = [(4, 2),(3,1),(2,0),(1,0),(0,5),(0,6),(6,8),(5,7),(8,10),(7,9),
                (5,11),(6,12),(12,14),(11,13),(14,16),(13,15)] # kp graph
 
     pos = hptr_data["agent/pos"]
-    kp = hptr_data["agent/kp"]
+    if kp_mode: # get keypoints
+        kp = hptr_data["agent/kp"]
     type = hptr_data["agent/type"]
     yaw = hptr_data["agent/yaw_bbox"]
+    valid = hptr_data["agent/valid"]
 
     timesteps, num_agents, _ = pos.shape
 
@@ -60,47 +66,44 @@ def plot_scenario(hptr_data: Dict,
 
     colors = ["blue", "orange", "green"]
 
-    # Plot trajectories (z = 0)
+    # Plot trajectories and Bboxes at t=10
     for agent in range(num_agents):
             traj = pos[:, agent, :]
-            mask = ~((traj[:, 0] == 0) & (traj[:, 1] == 0))
-            filtered_traj = traj[mask]
+            filtered_traj = traj[valid[:, agent]]
             agent_yaw = yaw[:, agent, :]
             if len(filtered_traj) > 0:
-                if traj[10, 0] != 0 and traj[10, 1] != 0:
+                if valid[current_t, agent]:
                     color = colors[np.argmax(type[agent])]
                     ax.plot(filtered_traj[:, 0], filtered_traj[:, 1], zs=0, zdir='z', alpha=0.99, color = color)
-                    all_x.extend([traj[10, 0]])
-                    all_y.extend([traj[10, 1]])
+                    all_x.extend([traj[current_t, 0]])
+                    all_y.extend([traj[current_t, 1]])
                     all_z.extend([0])
 
                     if type[agent, 0]:
-                        bbox = rotate_bbox_zaxis(car, float(agent_yaw[10,0]))
+                        bbox = rotate_bbox_zaxis(car, float(agent_yaw[current_t,0]))
                     elif type[agent, 1]:
-                        bbox = rotate_bbox_zaxis(pedestrian, float(agent_yaw[10,0]))
+                        bbox = rotate_bbox_zaxis(pedestrian, float(agent_yaw[current_t,0]))
                     elif type[agent, 2]:
-                        bbox = rotate_bbox_zaxis(cyclist, float(agent_yaw[10,0]))
+                        bbox = rotate_bbox_zaxis(cyclist, float(agent_yaw[current_t,0]))
                     
-                    bbox = shift_cuboid(float(traj[10, 0]), float(traj[10, 1]), bbox)
+                    bbox = shift_cuboid(float(traj[current_t, 0]), float(traj[current_t, 1]), bbox)
                     add_cube(bbox, ax, color=color, alpha=0.1)
 
-    # Plot keypoints
-    for agent in range(num_agents):
-        if type[agent, 1] == 1 or type[agent, 2] == 1:
-            for t in range(timesteps):
-                if t == 10:
-                    keypoints_flat = kp[t, agent]
-                    keypoints = keypoints_flat.reshape(num_joints, 3)
-                    for edge in in_edge:
-                        i, j = edge
-                        p1, p2 = keypoints[i], keypoints[j]
-                        if (p1 != p2).all():
-                            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], color='yellow')
-                            all_x.extend([p1[0], p2[0]])
-                            all_y.extend([p1[1], p2[1]])
-                            all_z.extend([p1[2], p2[2]])
+    
+    if kp_mode: # Plot keypoints for pedestrians & cyclists
+        for agent in range(num_agents):
+            if type[agent, 1] == 1 or type[agent, 2] == 1: 
+                keypoints = kp[current_t, agent].reshape(num_joints, 3)
+                for edge in in_edge:
+                    i, j = edge
+                    p1, p2 = keypoints[i], keypoints[j]
+                    if (p1 != p2).all():
+                        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], color='yellow')
+                        all_x.extend([p1[0], p2[0]])
+                        all_y.extend([p1[1], p2[1]])
+                        all_z.extend([p1[2], p2[2]])
+                        
     # Set axis limits
-    margin = -0.35  # 10% margin
     if all_x and all_y and all_z:
         x_min, x_max = np.min(all_x), np.max(all_x)
         y_min, y_max = np.min(all_y), np.max(all_y)

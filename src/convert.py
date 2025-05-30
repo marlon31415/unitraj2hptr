@@ -52,7 +52,7 @@ one_hot_agent = defaultdict(lambda: 0, one_hot_agent)
 CURRENT_STEP = 10
 
 
-def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
+def convert_unitraj_to_hptr_agent(data, hptr_data: dict, kp_mode= False):
     agent_pos = np.hstack(
         (data["obj_trajs"][..., 0:2], data["obj_trajs_future_state"][..., 0:2])
     )
@@ -61,7 +61,7 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
     )
     agent_valid = np.hstack((data["obj_trajs_mask"], data["obj_trajs_future_mask"]))
 
-    if mode == "keypoints":
+    if kp_mode:
         agent_kp = np.hstack(
             (data["obj_trajs"][..., 29:80], data["obj_trajs_future_state"][..., 4:56])
         )
@@ -82,7 +82,7 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
     # agent/role: shape (64, 3)
     hptr_data["agent/role"] = np.zeros((64, 3), dtype=bool)
     # agent/kp: shape (91,64,51)
-    if mode == "keypoints":
+    if kp_mode:
         hptr_data["agent/kp"] = agent_kp.transpose(1, 0, 2)
     # agent/type: shape (64, 3)
     # agent type unitraj (obj_trajs[..., 6:11]):
@@ -173,7 +173,7 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
     hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2), dtype=np.float32)
     hptr_data["agent_no_sim/pos"][:, :64, :] = hptr_data["agent/pos"]
     # agent_no_sim/kp: shape (91, 256, 51)
-    if mode == "keypoints":
+    if kp_mode:
         hptr_data["agent_no_sim/kp"] = np.zeros((91, 256, 51), dtype=np.float32)
         hptr_data["agent_no_sim/kp"][:, :64, :] = hptr_data["agent/kp"]
     # agent_no_sim/size: shape (256, 3)
@@ -196,14 +196,14 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, mode= None):
     hptr_data["agent_no_sim/yaw_bbox"][:, :64, :] = hptr_data["agent/yaw_bbox"]
 
 
-def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, mode= None):
+def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, kp_mode= False):
     if not any(key.startswith("agent") for key in hptr_data.keys()):
         convert_unitraj_to_hptr_agent(data, hptr_data)
 
     hptr_data["history/agent/valid"] = hptr_data["agent/valid"][: CURRENT_STEP + 1]
     hptr_data["history/agent/object_id"] = hptr_data["agent/object_id"]
     hptr_data["history/agent/pos"] = hptr_data["agent/pos"][: CURRENT_STEP + 1]
-    if mode == "keypoints":
+    if kp_mode:
         hptr_data["history/agent/kp"] = hptr_data["agent/kp"][: CURRENT_STEP + 1]
     hptr_data["history/agent/role"] = hptr_data["agent/role"]
     hptr_data["history/agent/size"] = hptr_data["agent/size"]
@@ -235,7 +235,7 @@ def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, mode= None):
     hptr_data["history/agent_no_sim/yaw_bbox"] = hptr_data["agent_no_sim/yaw_bbox"][
         : CURRENT_STEP + 1
     ]
-    if mode == "keypoints":
+    if kp_mode:
         hptr_data["history/agent_no_sim/kp"] = hptr_data["agent_no_sim/kp"][
         : CURRENT_STEP + 1
         ]
@@ -319,10 +319,9 @@ if __name__ == "__main__":
         help="The directory of the UniTraj data to convert",
     )
     parser.add_argument(
-        "--mode",
-        type=str,
-        default=None,
-        help="If the mode is set to 'keypoints', these atributes will be added to the HPTR format",
+        "--kp_mode",
+        action="store_true",
+        help="If the kp_mode is set, the kypoints will be added to the HPTR format",
     )
     parser.add_argument(
         "--save_plots",
@@ -369,21 +368,24 @@ if __name__ == "__main__":
 
                 hptr_data = {}
                 if dataset == "train":
-                    convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.kp_mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     if args.save_plots:
                         plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
                 elif dataset == "val":
-                    convert_unitraj_to_hptr_agent(data, hptr_data, args.mode)
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.kp_mode)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.kp_mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
                     if args.save_plots:
-                        plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
+                        plot_scenario(hptr_data,
+                                      save_path= args.save_path + f"_g{i}_{filename}",
+                                      kp_mode = args.kp_mode
+                                      )
                 elif dataset == "test":
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.mode)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.kp_mode)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
 
