@@ -7,7 +7,8 @@ name = "unitraj2hptr"
 version = "0.1.0"
 description = "Converts the h5 data from UniTraj (based on ScenarioNet) to the HPTR data format"
 authors = [
-    { name = "Marlon Steiner", email = "marlon.steiner@kit.edu" }
+    { name = "Marlon Steiner", email = "marlon.steiner@kit.edu" },
+    { name = "Jaime Villa Plaza", email = "javillap@pa.uc3m.es" }
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -28,6 +29,7 @@ dependencies = [
     "numpy==2.0.2",
     "h5py==3.12.1",
     "tqdm==4.67.1",
+    "matplotlib==3.8.4",
 ]
 
 [project.urls]

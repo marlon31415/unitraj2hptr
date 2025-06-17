@@ -5,7 +5,8 @@ from tqdm import tqdm
 from collections import defaultdict
 
 from h5_utils import write_element_to_hptr_h5_file
-from utils import classify_track
+from utils import classify_track, get_num_predict
+from view import plot_scenario
 
 # UniTraj to Waymo (hptr) map pl conversion
 # UniTraj definition: https://github.com/vita-epfl/UniTraj/blob/735029a62889ebb6f1639fb7bf8f920d2498496c/unitraj/datasets/types.py#L40
@@ -51,7 +52,7 @@ one_hot_agent = defaultdict(lambda: 0, one_hot_agent)
 CURRENT_STEP = 10
 
 
-def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
+def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= False):
     agent_pos = np.hstack(
         (data["obj_trajs"][..., 0:2], data["obj_trajs_future_state"][..., 0:2])
     )
@@ -59,6 +60,12 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
         (data["obj_trajs"][..., 25:27], data["obj_trajs_future_state"][..., 2:4])
     )
     agent_valid = np.hstack((data["obj_trajs_mask"], data["obj_trajs_future_mask"]))
+
+    if use_ped_cyc_keypoints:
+        agent_kp = np.hstack(
+            (data["obj_trajs"][..., 29:80], data["obj_trajs_future_state"][..., 4:56])
+        )
+        keypoint_valid = np.hstack((data["obj_kp_mask"], data["obj_future_kp_mask"]))
 
     n_agent = agent_pos.shape[0]
     assert n_agent == 64, "Number of agents must be 64"
@@ -75,6 +82,10 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     hptr_data["agent/size"] = data["obj_trajs"][..., 0, 3:6]
     # agent/role: shape (64, 3)
     hptr_data["agent/role"] = np.zeros((64, 3), dtype=bool)
+    # agent/kp: shape (91,64,51) agent/kp_valid: shape (91, 64, 17)
+    if use_ped_cyc_keypoints:
+        hptr_data["agent/kp"] = agent_kp.transpose(1, 0, 2)
+        hptr_data["agent/kp_valid"] = keypoint_valid.transpose(1, 0, 2).astype(bool)
     # agent/type: shape (64, 3)
     # agent type unitraj (obj_trajs[..., 6:11]):
     # (veh, ped, cyc, predict, ego) -> no real one-hot encoding
@@ -83,10 +94,15 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     for i, type in enumerate(agent_type_one_hot):
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
-        if type[3] == 1:
-            hptr_data["agent/role"][i][2] = True
-        if type[4] == 1:
+
+        if type[4] == 1: # Ego vehicle
             hptr_data["agent/role"][i][0] = True
+
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: # Predict based on Unitraj
+            hptr_data["agent/role"][i][2] = True
+
+    assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
+
     hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)
@@ -158,6 +174,12 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     # agent_no_sim/pos: shape (91, 256, 2)
     hptr_data["agent_no_sim/pos"] = np.zeros((91, 256, 2), dtype=np.float32)
     hptr_data["agent_no_sim/pos"][:, :64, :] = hptr_data["agent/pos"]
+    # agent_no_sim/kp: shape (91, 256, 51) agent_no_sim/valid: shape (91, 256, 17)
+    if use_ped_cyc_keypoints:
+        hptr_data["agent_no_sim/kp"] = np.zeros((91, 256, 51), dtype=np.float32)
+        hptr_data["agent_no_sim/kp"][:, :64, :] = hptr_data["agent/kp"]
+        hptr_data["agent_no_sim/kp_valid"] = np.zeros((91, 256, 17), dtype=bool)
+        hptr_data["agent_no_sim/kp_valid"][:, :64, :] = hptr_data["agent/kp_valid"]
     # agent_no_sim/size: shape (256, 3)
     hptr_data["agent_no_sim/size"] = np.zeros((256, 3), dtype=np.float32)
     hptr_data["agent_no_sim/size"][:64, :] = hptr_data["agent/size"]
@@ -178,13 +200,16 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict):
     hptr_data["agent_no_sim/yaw_bbox"][:, :64, :] = hptr_data["agent/yaw_bbox"]
 
 
-def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
+def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict, use_ped_cyc_keypoints= False):
     if not any(key.startswith("agent") for key in hptr_data.keys()):
         convert_unitraj_to_hptr_agent(data, hptr_data)
 
     hptr_data["history/agent/valid"] = hptr_data["agent/valid"][: CURRENT_STEP + 1]
     hptr_data["history/agent/object_id"] = hptr_data["agent/object_id"]
     hptr_data["history/agent/pos"] = hptr_data["agent/pos"][: CURRENT_STEP + 1]
+    if use_ped_cyc_keypoints:
+        hptr_data["history/agent/kp"] = hptr_data["agent/kp"][: CURRENT_STEP + 1]
+        hptr_data["history/agent/kp_valid"] = hptr_data["agent/kp_valid"][: CURRENT_STEP + 1, :]
     hptr_data["history/agent/role"] = hptr_data["agent/role"]
     hptr_data["history/agent/size"] = hptr_data["agent/size"]
     hptr_data["history/agent/type"] = hptr_data["agent/type"]
@@ -215,6 +240,14 @@ def convert_unitraj_to_hptr_history_agent(data, hptr_data: dict):
     hptr_data["history/agent_no_sim/yaw_bbox"] = hptr_data["agent_no_sim/yaw_bbox"][
         : CURRENT_STEP + 1
     ]
+    if use_ped_cyc_keypoints:
+        hptr_data["history/agent_no_sim/kp"] = hptr_data["agent_no_sim/kp"][
+        : CURRENT_STEP + 1
+        ]
+        hptr_data["history/agent_no_sim/kp_valid"] = hptr_data["agent_no_sim/kp_valid"][
+        : CURRENT_STEP + 1
+        ]
+
 
 
 def convert_unitraj_to_hptr_map(data, hptr_data: dict):
@@ -293,6 +326,23 @@ if __name__ == "__main__":
         default="/dir/to/nuscenes_unitraj/train/nuscenes_scenarionet",
         help="The directory of the UniTraj data to convert",
     )
+    parser.add_argument(
+        "--use_ped_cyc_keypoints",
+        action="store_true",
+        help="If --use_ped_cyc_keypoints is set, PEDESTRIAN and CYCLIST keypoints will be added to the HPTR format." \
+        "VEHICLE keypoints will also be added, but they will appear padded at the center of the bbox",
+    )
+    parser.add_argument(
+        "--save_plots",
+        action="store_true",
+        help="If save_plots is True, the plots are saved under --save_path",
+    )
+    parser.add_argument(
+        "--save_path",
+        type=str,
+        default="../res/plots/scenario",
+        help="This path is used to store the scenario plots, the files are asumed to be named scenario_... .png",
+    )
     args = parser.parse_args()
     dataset = args.dataset
     hptr_root_dir = args.hptr_root_dir
@@ -313,7 +363,7 @@ if __name__ == "__main__":
         file_path = os.path.join(unitraj_data_dir, filename)
         with h5py.File(file_path, "r") as f:
             groups = list(f.keys())
-            for group in groups:
+            for i, group in enumerate(groups):
                 data = {k: v[()] for k, v in f[group].items()}
                 metadata = {}
                 metadata["scenario_id"] = f[group]["scenario_id"]
@@ -327,17 +377,24 @@ if __name__ == "__main__":
 
                 hptr_data = {}
                 if dataset == "train":
-                    convert_unitraj_to_hptr_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
+                    if args.save_plots:
+                        plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
                 elif dataset == "val":
-                    convert_unitraj_to_hptr_agent(data, hptr_data)
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_agent(data, hptr_data, args.use_ped_cyc_keypoints)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
+                    if args.save_plots:
+                        plot_scenario(hptr_data,
+                                      save_path= args.save_path + f"_g{i}_{filename}",
+                                      use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
+                                      )
                 elif dataset == "test":
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data)
+                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
 
