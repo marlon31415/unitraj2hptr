@@ -10,7 +10,7 @@ def plot_scenario(hptr_data: Dict,
                   num_joints: int = 17, 
                   ax_dist: int = 5,
                   margin: float = -0.35,
-                  kp_mode: bool = False,
+                  use_ped_cyc_keypoints: bool = False,
                   current_t: int = 10):
     """
     Plot 3D trajectories and keypoints for multiple agents over time.
@@ -26,8 +26,9 @@ def plot_scenario(hptr_data: Dict,
                (5,11),(6,12),(12,14),(11,13),(14,16),(13,15)] # kp graph
 
     pos = hptr_data["agent/pos"]
-    if kp_mode: # get keypoints
+    if use_ped_cyc_keypoints:
         kp = hptr_data["agent/kp"]
+        kp_valid = hptr_data["agent/kp_valid"]
     type = hptr_data["agent/type"]
     yaw = hptr_data["agent/yaw_bbox"]
     valid = hptr_data["agent/valid"]
@@ -90,14 +91,14 @@ def plot_scenario(hptr_data: Dict,
                     add_cube(bbox, ax, color=color, alpha=0.1)
 
     
-    if kp_mode: # Plot keypoints for pedestrians & cyclists
+    if use_ped_cyc_keypoints: # Plot keypoints for pedestrians & cyclists
         for agent in range(num_agents):
             if type[agent, 1] == 1 or type[agent, 2] == 1: 
                 keypoints = kp[current_t, agent].reshape(num_joints, 3)
                 for edge in in_edge:
                     i, j = edge
                     p1, p2 = keypoints[i], keypoints[j]
-                    if (p1 != p2).all():
+                    if kp_valid[current_t, agent, i] and kp_valid[current_t, agent, j]:
                         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], color='yellow')
                         all_x.extend([p1[0], p2[0]])
                         all_y.extend([p1[1], p2[1]])
