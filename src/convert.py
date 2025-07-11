@@ -95,11 +95,24 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= 
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
 
+        save_slot_nusc_default = 1 # reserves a slot for nuScenes default predict
         if type[4] == 1: # Ego vehicle
             hptr_data["agent/role"][i][0] = True
 
         if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: # Predict based on Unitraj
-            hptr_data["agent/role"][i][2] = True
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP+1, i].any()
+            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+            if has_hist and has_fut:
+                hptr_data["agent/role"][i][2] = True
+            save_slot_nusc_default = 0
+
+        elif get_num_predict(hptr_data["agent/role"]) + save_slot_nusc_default < 8:
+
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP+1, i].any()
+            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+
+            if has_hist and has_fut:
+                hptr_data["agent/role"][i][2] = True
 
     assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
 
@@ -381,7 +394,11 @@ if __name__ == "__main__":
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     if args.save_plots:
-                        plot_scenario(hptr_data, save_path= args.save_path + f"_g{i}_{filename}")
+                        plot_scenario(
+                            hptr_data,
+                            save_path= args.save_path + f"_g{i}_{filename}",
+                            use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
+                            )
                 elif dataset == "val":
                     convert_unitraj_to_hptr_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
@@ -389,10 +406,11 @@ if __name__ == "__main__":
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
                     if args.save_plots:
-                        plot_scenario(hptr_data,
-                                      save_path= args.save_path + f"_g{i}_{filename}",
-                                      use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
-                                      )
+                        plot_scenario(
+                            hptr_data,
+                            save_path= args.save_path + f"_g{i}_{filename}",
+                            use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
+                            )
                 elif dataset == "test":
                     convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_map(data, hptr_data)

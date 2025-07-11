@@ -48,9 +48,9 @@ python convert.py --dataset split_to_convert --hptr_root_dir /path/to/hptr/outpu
 
 
 <p align="center">
-  <img src="./res/plots/examples/example_default_1.png" width="33%" alt="example_1" />
-  <img src="./res/plots/examples/example_default_2.png" width="33%" alt="example_2" />
-  <img src="./res/plots/examples/example_default_3.png" width="33%" alt="example_3" />
+  <img src="./res/plots/examples/example_default_1.png" width="32%" alt="example_1" />
+  <img src="./res/plots/examples/example_default_2.png" width="32%" alt="example_2" />
+  <img src="./res/plots/examples/example_default_3.png" width="32%" alt="example_3" />
 </p>
 <p align="center">
   <em>NuScenes examples of default mode scenario <a href="https://github.com/zhejz/HPTR">HPTR</a>  outputs.</em>
