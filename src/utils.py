@@ -80,4 +80,4 @@ def get_num_predict(
         NUM_PREDICT_ROLES: int
     """
 
-    return sum(role)[:][2]
+    return int(role[:, 2].sum())

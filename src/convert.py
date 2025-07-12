@@ -91,31 +91,63 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= 
     # (veh, ped, cyc, predict, ego) -> no real one-hot encoding
     agent_type_one_hot = data["obj_trajs"][..., -1, 6:11]
     agent_type_int_waymo = []
+
+    # First round to get ego vehicle and Unitraj predict
+    target_agents = []
     for i, type in enumerate(agent_type_one_hot):
         agent_type_int = np.argmax(type, axis=-1)
         agent_type_int_waymo.append(one_hot_agent[agent_type_int])
-
-        save_slot_nusc_default = 1 # reserves a slot for nuScenes default predict
-        if type[4] == 1: # Ego vehicle
-            hptr_data["agent/role"][i][0] = True
-
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1: # Predict based on Unitraj
-            has_hist = hptr_data["agent/valid"][:CURRENT_STEP+1, i].any()
+        
+        # Ego vehicle
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[4] == 1:
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
             has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-            if has_hist and has_fut:
+            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+            if has_hist and has_fut and has_curr:
+                hptr_data["agent/role"][i][0] = True
                 hptr_data["agent/role"][i][2] = True
-            save_slot_nusc_default = 0
+                target_agents.append(i)
 
-        elif get_num_predict(hptr_data["agent/role"]) + save_slot_nusc_default < 8:
-
-            has_hist = hptr_data["agent/valid"][:CURRENT_STEP+1, i].any()
+        # Predict based on Unitraj
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1:
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
             has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-
-            if has_hist and has_fut:
+            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+            if has_hist and has_fut and has_curr:
                 hptr_data["agent/role"][i][2] = True
+                target_agents.append(i)
+                
+    # Optional Round
+    if use_ped_cyc_keypoints:
+        for i, type in enumerate(agent_type_one_hot):
+            agent_type_int = np.argmax(type, axis=-1)
+
+            ped_with_keypoints = (agent_type_int == 1) and hptr_data["agent/kp_valid"][:CURRENT_STEP +1, i].sum(-1).any()
+
+            if ((get_num_predict(hptr_data["agent/role"]) < 8) and (i not in target_agents)):
+
+                has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+                has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+                has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+                if has_hist and has_fut and has_curr and ped_with_keypoints:
+                    hptr_data["agent/role"][i][2] = True
+                    target_agents.append(i)
+
+    # Last Round to fill extra agents
+    for i, type in enumerate(agent_type_one_hot):
+        agent_type_int = np.argmax(type, axis=-1)
+
+        if (get_num_predict(hptr_data["agent/role"]) < 8 and i not in target_agents):
+
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+            if has_hist and has_fut and has_curr:
+                hptr_data["agent/role"][i][2] = True
+                target_agents.append(i)
 
     assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
-
+    
     hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)
