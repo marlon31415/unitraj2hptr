@@ -5,7 +5,7 @@ from tqdm import tqdm
 from collections import defaultdict
 
 from h5_utils import write_element_to_hptr_h5_file
-from utils import classify_track, get_num_predict
+from utils import classify_track, get_num_predict, overlaps
 from view import plot_scenario
 
 # UniTraj to Waymo (hptr) map pl conversion
@@ -51,8 +51,16 @@ one_hot_agent = defaultdict(lambda: 0, one_hot_agent)
 
 CURRENT_STEP = 10
 
-
-def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= False):
+def convert_unitraj_to_hptr_agent(
+        data, 
+        hptr_data: dict, 
+        use_ped_cyc_keypoints = False,
+        predict_ego = False,
+        fill_max_agents = False,
+        exclude_ped_no_keypoints = False,
+        exclude_cyc_no_keypoints = False,
+        min_spd = 0.0,
+        ):
     agent_pos = np.hstack(
         (data["obj_trajs"][..., 0:2], data["obj_trajs_future_state"][..., 0:2])
     )
@@ -89,66 +97,7 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= 
     # agent/type: shape (64, 3)
     # agent type unitraj (obj_trajs[..., 6:11]):
     # (veh, ped, cyc, predict, ego) -> no real one-hot encoding
-    agent_type_one_hot = data["obj_trajs"][..., -1, 6:11]
-    agent_type_int_waymo = []
-
-    # First round to get ego vehicle and Unitraj predict
-    target_agents = []
-    for i, type in enumerate(agent_type_one_hot):
-        agent_type_int = np.argmax(type, axis=-1)
-        agent_type_int_waymo.append(one_hot_agent[agent_type_int])
-        
-        # Ego vehicle
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[4] == 1:
-            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
-            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
-            if has_hist and has_fut and has_curr:
-                hptr_data["agent/role"][i][0] = True
-                hptr_data["agent/role"][i][2] = True
-                target_agents.append(i)
-
-        # Predict based on Unitraj
-        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1:
-            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
-            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
-            if has_hist and has_fut and has_curr:
-                hptr_data["agent/role"][i][2] = True
-                target_agents.append(i)
-                
-    # Optional Round
-    if use_ped_cyc_keypoints:
-        for i, type in enumerate(agent_type_one_hot):
-            agent_type_int = np.argmax(type, axis=-1)
-
-            ped_with_keypoints = (agent_type_int == 1) and hptr_data["agent/kp_valid"][:CURRENT_STEP +1, i].sum(-1).any()
-
-            if ((get_num_predict(hptr_data["agent/role"]) < 8) and (i not in target_agents)):
-
-                has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
-                has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-                has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
-                if has_hist and has_fut and has_curr and ped_with_keypoints:
-                    hptr_data["agent/role"][i][2] = True
-                    target_agents.append(i)
-
-    # Last Round to fill extra agents
-    for i, type in enumerate(agent_type_one_hot):
-        agent_type_int = np.argmax(type, axis=-1)
-
-        if (get_num_predict(hptr_data["agent/role"]) < 8 and i not in target_agents):
-
-            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
-            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
-            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
-            if has_hist and has_fut and has_curr:
-                hptr_data["agent/role"][i][2] = True
-                target_agents.append(i)
-
-    assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
     
-    hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
     # agent/vel: shape (91, 64, 2)
     hptr_data["agent/vel"] = agent_vel.transpose(1, 0, 2)
     # agent/spd: shape (91, 64, 1)
@@ -185,6 +134,85 @@ def convert_unitraj_to_hptr_agent(data, hptr_data: dict, use_ped_cyc_keypoints= 
     hptr_data["agent/acc"] = agent_acc.transpose(1, 0, 2).astype(np.float32)
     hptr_data["agent/yaw_bbox"] = agent_yaw.transpose(1, 0, 2).astype(np.float32)
     hptr_data["agent/yaw_rate"] = agent_yaw_rate.transpose(1, 0, 2).astype(np.float32)
+
+    agent_type_one_hot = data["obj_trajs"][..., -1, 6:11]
+    agent_type_int_waymo = []
+
+    # First round to get ego vehicle and Unitraj predict
+    target_agents = []
+    for i, type in enumerate(agent_type_one_hot):
+        agent_type_int = np.argmax(type, axis=-1)
+        agent_type_int_waymo.append(one_hot_agent[agent_type_int])
+        
+        # Ego vehicle
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[4] == 1:
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+            if has_hist and has_fut and has_curr and not overlaps(i, hptr_data):
+                hptr_data["agent/role"][i][0] = True
+                if predict_ego:
+                    hptr_data["agent/role"][i][2] = True
+                target_agents.append(i)
+
+        # Predict based on Unitraj
+        if get_num_predict(hptr_data["agent/role"]) < 8 and type[3] == 1:
+            has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+            has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+            has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+            if has_hist and has_fut and has_curr and not overlaps(i, hptr_data):
+                hptr_data["agent/role"][i][2] = True
+                target_agents.append(i)
+                
+    # Optional Round
+    if use_ped_cyc_keypoints:
+        for i, type in enumerate(agent_type_one_hot):
+            agent_type_int = np.argmax(type, axis=-1)
+
+            has_valid_kp = (hptr_data["agent/kp_valid"]*hptr_data["agent/valid"][..., None])[:CURRENT_STEP +1, i].sum(-1).any()
+
+            with_keypoints = (agent_type_int == 1 or agent_type_int == 2) and has_valid_kp
+
+            if ((get_num_predict(hptr_data["agent/role"]) < 8) and (i not in target_agents)) and with_keypoints:
+
+                has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+                has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+                has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+                
+                if has_hist and has_fut and has_curr and not overlaps(i, hptr_data):
+                    hptr_data["agent/role"][i][2] = True
+                    target_agents.append(i)
+
+    # Last Round to fill extra agents
+    if fill_max_agents:
+        for i, type in enumerate(agent_type_one_hot):
+            agent_type_int = np.argmax(type, axis=-1)
+
+            if (get_num_predict(hptr_data["agent/role"]) < 8 and i not in target_agents):
+
+                has_hist = hptr_data["agent/valid"][:CURRENT_STEP +1, i].any()
+                has_fut = hptr_data["agent/valid"][CURRENT_STEP+1:, i].any()
+                has_curr = hptr_data["agent/valid"][CURRENT_STEP, i]
+                
+                speeds_i = hptr_data["agent/spd"][:, i, 0]
+                valid_i = hptr_data["agent/valid"][:, i]
+                valid_speeds = speeds_i[valid_i]
+
+                if valid_speeds.size == 0:
+                    is_fast = False
+                else:
+                    mean_valid_speed_i = valid_speeds.mean()
+                    is_fast = (mean_valid_speed_i > min_spd)
+
+                exclude = (exclude_ped_no_keypoints and agent_type_int == 1) or (exclude_cyc_no_keypoints and agent_type_int == 2)
+                
+                if not exclude and has_hist and has_fut and has_curr and not overlaps(i, hptr_data) and is_fast:
+                    hptr_data["agent/role"][i][2] = True
+                    target_agents.append(i)
+
+    assert get_num_predict(hptr_data["agent/role"]) <= 8, "Too many predict roles"
+    
+    hptr_data["agent/type"] = np.eye(3, dtype=bool)[agent_type_int_waymo]
 
     # agent/goal: shape (64, 4) TODO
     hptr_data["agent/goal"] = np.zeros((64, 4), dtype=np.float32)
@@ -378,6 +406,34 @@ if __name__ == "__main__":
         "VEHICLE keypoints will also be added, but they will appear padded at the center of the bbox",
     )
     parser.add_argument(
+        "--predict_ego",
+        action="store_true",
+        help="If --predict_ego is set, the ego-vehicle (sdc) is marked as to-predict" 
+    )
+    parser.add_argument(
+        "--fill_max_agents",
+        action="store_true",
+        help="If --fill_max_agents is set, marks as many to-predict agents as possible"
+    )
+    parser.add_argument(
+        "--exclude_ped_no_keypoints",
+        action="store_true",
+        help="If --exclude_ped_no_keypoints is set, excludes pedestrians with no keypoints to-predict"\
+        "(except the ones marked to-predict by Unitraj)",
+    )
+    parser.add_argument(
+        "--exclude_cyc_no_keypoints",
+        action="store_true",
+        help="If --exclude_cyc_no_keypoints is set, excludes cyclist with no keypoints to-predict"\
+        "(except the ones marked to-predict by Unitraj)",
+    )
+    parser.add_argument(
+        "--min_spd",
+        type=float,
+        default=0.0,
+        help="Sets minimum speed for extra agents in (m/s)",
+    )
+    parser.add_argument(
         "--save_plots",
         action="store_true",
         help="If save_plots is True, the plots are saved under --save_path",
@@ -422,7 +478,16 @@ if __name__ == "__main__":
 
                 hptr_data = {}
                 if dataset == "train":
-                    convert_unitraj_to_hptr_agent(data, hptr_data, args.use_ped_cyc_keypoints)
+                    convert_unitraj_to_hptr_agent(
+                        data,
+                        hptr_data,
+                        args.use_ped_cyc_keypoints,
+                        args.predict_ego,
+                        args.fill_max_agents,
+                        args.exclude_ped_no_keypoints,
+                        args.exclude_cyc_no_keypoints,
+                        args.min_spd,
+                        )
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
                     if args.save_plots:
@@ -432,7 +497,16 @@ if __name__ == "__main__":
                             use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
                             )
                 elif dataset == "val":
-                    convert_unitraj_to_hptr_agent(data, hptr_data, args.use_ped_cyc_keypoints)
+                    convert_unitraj_to_hptr_agent(
+                        data,
+                        hptr_data,
+                        args.use_ped_cyc_keypoints,
+                        args.predict_ego,
+                        args.fill_max_agents,
+                        args.exclude_ped_no_keypoints,
+                        args.exclude_cyc_no_keypoints,
+                        args.min_spd,
+                        )
                     convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_tl(data, hptr_data)
@@ -444,7 +518,16 @@ if __name__ == "__main__":
                             use_ped_cyc_keypoints = args.use_ped_cyc_keypoints
                             )
                 elif dataset == "test":
-                    convert_unitraj_to_hptr_history_agent(data, hptr_data, args.use_ped_cyc_keypoints)
+                    convert_unitraj_to_hptr_agent(
+                        data,
+                        hptr_data,
+                        args.use_ped_cyc_keypoints,
+                        args.predict_ego,
+                        args.fill_max_agents,
+                        args.exclude_ped_no_keypoints,
+                        args.exclude_cyc_no_keypoints,
+                        args.min_spd,
+                        )
                     convert_unitraj_to_hptr_map(data, hptr_data)
                     convert_unitraj_to_hptr_history_tl(data, hptr_data)
 
