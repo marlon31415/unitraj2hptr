@@ -1,4 +1,57 @@
 import numpy as np
+from shapely.geometry import Polygon
+
+def get_corners(pos, size, yaw):
+        
+        dx =  size[0]/2 * np.cos(yaw)
+        dy =  size[0]/2 * np.sin(yaw)
+        wx =  size[1]/2 * -np.sin(yaw)
+        wy =  size[1]/2 *  np.cos(yaw)
+
+        return np.array([
+            [pos[:,0:1] + dx + wx, pos[:,1:2] + dy + wy],
+            [pos[:,0:1] + dx - wx, pos[:,1:2] + dy - wy],
+            [pos[:,0:1] - dx - wx, pos[:,1:2] - dy - wy],
+            [pos[:,0:1] - dx + wx, pos[:,1:2] - dy + wy],
+        ]).transpose(2,0,1,3).squeeze(-1)
+
+def overlaps(
+        target: int,
+        hptr_data: dict,
+        iou_thresh: float= 0.03,
+        current_step: int=10
+    ):
+
+    target_pos = hptr_data["agent/pos"][:, target] # (91, 2) x,y
+    target_yaw = hptr_data["agent/yaw_bbox"][:, target] # (91, 1) yaw
+    target_size = hptr_data["agent/size"][target] # (3) h,w,d
+
+    for i in range(hptr_data["agent/pos"].shape[1]):
+
+        if i == target:
+            continue
+
+        other_pos = hptr_data["agent/pos"][:, i] # (91, 2) x,y
+        other_yaw = hptr_data["agent/yaw_bbox"][:, i] # (91, 1) yaw
+        other_size = hptr_data["agent/size"][i] # (91, 3) h,w,d
+
+        target_box = get_corners(target_pos, target_size, target_yaw) # (91, 4, 2)
+        other_box = get_corners(other_pos, other_size, other_yaw) # (91, 4, 2)
+
+        
+        poly1 = Polygon(target_box[current_step,...])
+        poly2 = Polygon(other_box[current_step,...])
+
+        inter = poly1.intersection(poly2).area
+        union = poly1.union(poly2).area
+        if union != 0:
+            iou = inter/union
+        else:
+            iou = 0
+
+        if iou >= iou_thresh:
+            return True
+    return False
 
 
 def classify_track(
@@ -80,4 +133,4 @@ def get_num_predict(
         NUM_PREDICT_ROLES: int
     """
 
-    return sum(role)[:][2]
+    return int(role[:, 2].sum())

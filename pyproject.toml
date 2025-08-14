@@ -30,6 +30,7 @@ dependencies = [
     "h5py==3.12.1",
     "tqdm==4.67.1",
     "matplotlib==3.8.4",
+    "shapely==2.0.7",
 ]
 
 [project.urls]
